@@ -1,0 +1,24 @@
+{
+  "$schema": "https://workers.cloudflare.com/schema/wrangler.json",
+  "name": "budget-tracker",
+  "main": "worker.js",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "BUDGET_ROOM", "class_name": "BudgetRoom" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["BudgetRoom"] }
+  ],
+  "vars": {
+    "APP_PIN": "请在这里设置你的访问密码",
+    "AUTH_SECRET": "请在这里换成一串你自己的随机字符"
+  }
+}

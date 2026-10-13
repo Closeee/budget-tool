@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f6f8">
+<title>本月预算</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1a1d24;--sub:#9aa1ad;--line:#eceef1;
+--good:#22c07a;--warn:#f5a93b;--bad:#f0584d;--acc:#3d7bfd;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+min-height:100vh;display:flex;flex-direction:column;align-items:center;
+padding:calc(16px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom))}
+.wrap{width:100%;max-width:420px}
+.tabs{display:flex;background:#e8eaee;border-radius:12px;padding:4px;margin-bottom:16px}
+.tabs button{flex:1;padding:9px;border:none;background:transparent;border-radius:9px;font-size:14px;font-weight:600;color:var(--sub);cursor:pointer}
+.tabs button.on{background:#fff;color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.page{display:none}.page.on{display:block}
+.entry{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.04);margin-bottom:16px}
+.entry .seg{display:flex;gap:8px;margin-bottom:12px}
+.entry .seg button{flex:1;padding:9px;border:1px solid var(--line);background:var(--bg);border-radius:10px;font-size:14px;cursor:pointer;color:var(--sub);font-weight:600}
+.entry .seg button.on-exp{background:#fde7e5;color:var(--bad);border-color:var(--bad)}
+.entry .seg button.on-inc{background:#e3f7ee;color:var(--good);border-color:var(--good)}
+.entry .cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.entry .cats button{padding:8px 12px;border:1px solid var(--line);background:#fff;border-radius:18px;font-size:13px;cursor:pointer;color:var(--sub)}
+.entry .cats button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.entry .row{display:flex;gap:8px}
+.entry input[type=number],.entry input[type=text]{flex:1;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none;min-width:0}
+.entry input:focus{border-color:var(--acc)}
+.entry .add{padding:12px 20px;background:var(--acc);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap}
+.entry .mini{margin-top:9px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub)}
+.entry .mini label{display:inline-block;padding:6px 12px;border:1px dashed var(--line);border-radius:8px;cursor:pointer;color:var(--acc);font-weight:600}
+.hero{background:linear-gradient(135deg,#3d7bfd,#5b93ff);border-radius:20px;padding:22px 24px;color:#fff;box-shadow:0 8px 24px rgba(61,123,253,.25);margin-bottom:16px}
+.hero .label{font-size:13px;opacity:.85}
+.hero .num{font-size:42px;font-weight:700;margin-top:2px}
+.hero .num small{font-size:17px;font-weight:500}
+.hero .days{font-size:12px;opacity:.85;margin-top:6px}
+.cards{display:flex;flex-direction:column;gap:11px}
+.card{background:var(--card);border-radius:16px;padding:15px 18px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.card .top{display:flex;justify-content:space-between;align-items:baseline}
+.card .name{font-size:15px;font-weight:600}
+.card .left{font-size:21px;font-weight:700}
+.card .left.over{color:var(--bad)}
+.card .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:2px}
+.card .today{font-size:12px;color:var(--sub);margin-top:9px}
+.card .today b{color:var(--acc)}
+.balance{background:var(--card);border-radius:16px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.03);margin-top:16px}
+.balance .bhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;color:var(--sub)}
+.balance .bnum{font-size:30px;font-weight:700;margin-top:4px}
+.balance .bnum.pos{color:var(--good)}
+.balance .bnum.neg{color:var(--bad)}
+.balance .bhint{font-size:11px;color:var(--sub);margin-top:6px;line-height:1.5}
+.bar{height:8px;border-radius:4px;background:var(--line);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;transition:width .3s}
+.pill{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:4px}
+.pill.ok{background:#e3f7ee;color:var(--good)}
+.pill.warn{background:#fdf1de;color:var(--warn)}
+.pill.over{background:#fde7e5;color:var(--bad)}
+.filter{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter button{padding:7px 13px;border:1px solid var(--line);background:#fff;border-radius:18px;font-size:12px;color:var(--sub);cursor:pointer}
+.filter button.on{background:var(--tx);color:#fff;border-color:var(--tx)}
+.txday{font-size:12px;color:var(--sub);font-weight:600;margin:14px 0 6px}
+.tx{background:var(--card);border-radius:14px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.03);margin-bottom:8px}
+.tx .l{display:flex;align-items:center;gap:11px;min-width:0}
+.tx .ic{width:36px;height:36px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.tx .cat{font-size:14px;font-weight:600}
+.tx .note{font-size:11px;color:var(--sub);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.tx .amt{font-size:16px;font-weight:700;white-space:nowrap}
+.tx .amt.inc{color:var(--good)}
+.tx .del{color:var(--sub);font-size:12px;margin-left:10px;cursor:pointer;padding:4px}
+.sumbar{display:flex;gap:10px;margin-bottom:14px}
+.sum{flex:1;background:var(--card);border-radius:14px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.03)}
+.sum .k{font-size:11px;color:var(--sub)}
+.sum .v{font-size:18px;font-weight:700;margin-top:2px}
+.sum .v.exp{color:var(--bad)}.sum .v.inc{color:var(--good)}
+.empty{text-align:center;color:var(--sub);font-size:13px;padding:40px 0}
+.foot{margin-top:20px;text-align:center;font-size:11px;color:var(--sub)}
+.foot .btn{display:inline-block;background:var(--card);border:1px solid var(--line);color:var(--acc);font-size:12px;padding:7px 16px;border-radius:18px;cursor:pointer;font-weight:600;margin:8px 4px 0}
+.foot .btn.gray{color:var(--sub)}
+.sync{font-size:11px;color:var(--sub);margin-top:2px}
+.sync.saving{color:var(--warn)}.sync.saved{color:var(--good)}.sync.err{color:var(--bad)}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#1a1d24;color:#fff;
+padding:11px 20px;border-radius:22px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99}
+.toast.show{opacity:.95}
+.gate{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
+.gate.on{display:flex}
+.gcard{background:var(--card);border-radius:20px;padding:28px 22px;width:100%;max-width:340px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.07)}
+.gcard .gicon{font-size:34px}
+.gcard h1{font-size:17px;margin:8px 0 6px}
+.gcard p{font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:16px}
+.gcard input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:13px;outline:none;margin-bottom:10px;font-family:ui-monospace,monospace;text-align:center}
+.gcard input:focus{border-color:var(--acc)}
+.gcard button{width:100%;padding:13px;background:var(--acc);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
+.gerr{color:var(--bad);font-size:12px;margin-top:10px;min-height:17px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="gcard">
+    <div class="gicon">🔑</div>
+    <h1>连接你的账本</h1>
+    <p>粘贴 GitHub 令牌，数据存进你私有的<br><b>budget-data</b> 仓库<br>手机和电脑填同一个令牌即可同步</p>
+    <input id="gateToken" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button onclick="connect()">连接</button>
+    <div class="gerr" id="gateErr"></div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="tabs">
+    <button id="tabBudget" class="on" onclick="showPage('budget')">💰 预算</button>
+    <button id="tabDetail" onclick="showPage('detail')">🧾 明细</button>
+  </div>
+
+  <div class="page on" id="page-budget">
+    <div class="entry">
+      <div class="seg">
+        <button id="btnExp" class="on-exp" onclick="setDir('支出')">支出</button>
+        <button id="btnInc" onclick="setDir('收入')">收入</button>
+      </div>
+      <div class="cats" id="cats"></div>
+      <div class="row">
+        <input id="amt" type="number" inputmode="decimal" placeholder="金额 ¥" min="0" step="0.01">
+        <button class="add" onclick="addTx()">记一笔</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="note" type="text" placeholder="备注（选填，如：10月工资、和XX吃饭）" maxlength="40">
+      </div>
+      <div class="mini">
+        <label>📄 导入账单<input type="file" accept=".csv,.xlsx" style="display:none" onchange="importFile(this)"></label>
+        <span id="importMsg"></span>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="label">本周期每天最多还能花（弹性总额）</div>
+      <div class="num" id="heroNum">¥--</div>
+      <div class="days" id="heroDays"></div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="balance">
+      <div class="bhead"><span>本月结余</span><span id="balTag"></span></div>
+      <div class="bnum" id="balNum">¥--</div>
+      <div class="bhint" id="balHint"></div>
+    </div>
+
+    <div class="foot">
+      <div class="sync" id="syncStatus">加载中…</div>
+      <span class="btn gray" onclick="logout()">断开连接</span>
+    </div>
+  </div>
+
+  <div class="page" id="page-detail">
+    <div class="sumbar">
+      <div class="sum"><div class="k">本周期支出</div><div class="v exp" id="sumExp">¥0</div></div>
+      <div class="sum"><div class="k">本周期进账</div><div class="v inc" id="sumInc">¥0</div></div>
+    </div>
+    <div class="filter" id="filter"></div>
+    <div id="txlist"></div>
+    <div class="foot"><span class="btn gray" onclick="logout()">断开连接</span></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// 固定额度（三个硬性消费桶），生活弹性自动吸收余额
+const BASE = {'吃饭':1500,'衣服':2000,'交通':350};
+const ORDER = ['吃饭','衣服','交通','生活弹性'];
+const ICON = {'吃饭':'🍚','衣服':'👗','交通':'🚇','生活弹性':'🧴','进账':'💵'};
+const PAY_DAY = 12;          // 每月 12 号发薪，周期 = 本月12号 → 次月12号
+const FIXED = 5700;          // 每周期固定扣减：强制储蓄 3500 + 房租 2200
+const DEFAULT_PAY = 11850;   // 未录入工资时，按此金额估算可花额
+
+// 本周期可花总额 = 进账 − 固定扣减（没录进账就按默认月薪算）
+function available(income){ return Math.max((income>0?income:DEFAULT_PAY)-FIXED, 0); }
+// 三类额度固定，生活弹性吸收剩余（工资变化时自动跟着变）
+function budgetOf(income){
+  const b={...BASE};
+  const used=ORDER.reduce((a,k)=>a+(b[k]||0),0);
+  b['生活弹性']=Math.max(available(income)-used,0);
+  return b;
+}
+
+let dir='支出', cat='吃饭', filter='全部';
+let TXS=[];                 // 全部记录 {id,date,dir,cat,amt,note,src}
+let saving=false, pendingSave=false;
+
+const fmt=n=>'¥'+Math.round(Math.abs(n)).toLocaleString();
+const toast=(m)=>{const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1800);};
+
+function periodStart(){const d=new Date();
+  return d.getDate()>=PAY_DAY?new Date(d.getFullYear(),d.getMonth(),PAY_DAY)
+    :new Date(d.getFullYear(),d.getMonth()-1,PAY_DAY);}
+function periodEnd(){const s=periodStart();return new Date(s.getFullYear(),s.getMonth()+1,PAY_DAY);}
+function daysLeft(){const t=new Date();t.setHours(0,0,0,0);const n=Math.round((periodEnd()-t)/86400000);return n<1?1:n;}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function inPeriod(dateStr){const d=new Date(dateStr+'T00:00:00');return d>=periodStart()&&d<periodEnd();}
+
+// ---------- 同步（GitHub Contents API：数据存进你的私有仓库）----------
+const GH_REPO='budget-data', GH_FILE='data.json';
+let GH_OWNER='', GH_SHA=null;
+
+function setSync(cls,msg){const e=document.getElementById('syncStatus');e.className='sync '+cls;e.textContent=msg;}
+const ghToken=()=>localStorage.getItem('gh_pat')||'';
+const ghHeaders=()=>({'Authorization':'Bearer '+ghToken(),'Accept':'application/vnd.github+json'});
+const b64e=s=>btoa(unescape(encodeURIComponent(s)));
+const b64d=s=>decodeURIComponent(escape(atob(s.replace(/\s/g,''))));
+const ghUrl=()=>'https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+GH_FILE;
+
+async function ghGet(){
+  const r=await fetch(ghUrl(),{headers:ghHeaders(),cache:'no-store'});
+  if(r.status===404){GH_SHA=null;return [];}        // 文件还没建过，从空账本开始
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const j=await r.json();
+  GH_SHA=j.sha;
+  let d={};try{d=JSON.parse(b64d(j.content));}catch(e){}
+  if(d.rules&&typeof d.rules==='object')RULES={eat:[],skip:[],travel:[],...d.rules};
+  return d.txs||[];
+}
+
+async function ghPut(txs){
+  for(let i=0;i<2;i++){
+    const body={message:'更新 '+new Date().toLocaleString('zh-CN'),content:b64e(JSON.stringify({txs,rules:RULES}))};
+    if(GH_SHA)body.sha=GH_SHA;
+    const r=await fetch(ghUrl(),{method:'PUT',
+      headers:{...ghHeaders(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){GH_SHA=(await r.json()).content.sha;return;}
+    if(r.status===409||r.status===422){await ghGet();continue;}   // 版本过期，拉最新的再写一次
+    throw new Error('HTTP '+r.status);
+  }
+  throw new Error('写入冲突');
+}
+
+// 首次连接：用令牌换出用户名，验证通过后开始同步
+async function connect(){
+  const el=document.getElementById('gateToken'), err=document.getElementById('gateErr');
+  const t=el.value.trim();
+  if(!t){err.textContent='请先粘贴令牌';return;}
+  err.textContent='连接中…';
+  localStorage.setItem('gh_pat',t);
+  try{
+    const u=await fetch('https://api.github.com/user',{headers:ghHeaders()});
+    if(!u.ok)throw new Error(u.status===401?'令牌无效或已过期':'HTTP '+u.status);
+    GH_OWNER=(await u.json()).login;
+    localStorage.setItem('gh_owner',GH_OWNER);
+    TXS=await ghGet();
+    document.getElementById('gate').classList.remove('on');
+    el.value='';err.textContent='';
+    setSync('saved','已同步 · 共 '+TXS.length+' 笔');
+    renderAll();
+  }catch(e){
+    localStorage.removeItem('gh_pat');
+    err.textContent='连接失败：'+e.message;
+  }
+}
+
+function logout(){
+  if(!confirm('断开连接？\n\n数据仍然安全保存在你的 GitHub 仓库里，只是这台设备不再同步。'))return;
+  localStorage.removeItem('gh_pat');localStorage.removeItem('gh_owner');
+  GH_OWNER='';GH_SHA=null;TXS=[];
+  document.getElementById('gate').classList.add('on');
+}
+
+async function loadState(){
+  GH_OWNER=localStorage.getItem('gh_owner')||'';
+  if(!ghToken()||!GH_OWNER){document.getElementById('gate').classList.add('on');return;}
+  try{
+    TXS=await ghGet();
+    setSync('saved','已同步 · 共 '+TXS.length+' 笔');
+    renderAll();
+  }catch(e){
+    if(String(e.message)==='HTTP 401'){          // 令牌失效，回连接页
+      localStorage.removeItem('gh_pat');
+      document.getElementById('gate').classList.add('on');
+      return;
+    }
+    setSync('err','同步失败，检查网络');renderAll();
+  }
+}
+
+async function saveState(){
+  if(saving){pendingSave=true;return;}
+  if(!ghToken())return;
+  saving=true;setSync('saving','保存中…');
+  try{
+    await ghPut(TXS);
+    setSync('saved','已同步 · 共 '+TXS.length+' 笔');
+  }catch(e){setSync('err','保存失败，请重试');toast('保存失败，检查网络');}
+  saving=false;
+  if(pendingSave){pendingSave=false;saveState();}
+}
+
+// ---------- 记账 ----------
+function setDir(d){dir=d;
+  document.getElementById('btnExp').className=d==='支出'?'on-exp':'';
+  document.getElementById('btnInc').className=d==='收入'?'on-inc':'';
+  document.getElementById('cats').style.display=d==='支出'?'flex':'none';
+  document.getElementById('amt').placeholder=d==='支出'?'金额 ¥':'进账金额 ¥（如工资）';}
+function renderCats(){const c=document.getElementById('cats');
+  c.innerHTML=ORDER.map(k=>`<button class="${k===cat?'on':''}" onclick="setCat('${k}')">${ICON[k]}${k}</button>`).join('');}
+function setCat(k){cat=k;renderCats();}
+
+function addTx(){
+  const v=parseFloat(document.getElementById('amt').value);
+  if(!v||v<=0){toast('请输入金额');return;}
+  const note=document.getElementById('note').value.trim();
+  TXS.push({id:Date.now()+Math.random(),date:todayStr(),dir:dir,cat:dir==='收入'?'进账':cat,amt:v,note:note,src:'手动'});
+  document.getElementById('amt').value='';document.getElementById('note').value='';
+  renderAll();saveState();
+}
+function delTx(id){TXS=TXS.filter(x=>x.id!==id);renderAll();saveState();}
+
+// ---------- 页面 ----------
+function showPage(p){
+  document.getElementById('page-budget').className='page'+(p==='budget'?' on':'');
+  document.getElementById('page-detail').className='page'+(p==='detail'?' on':'');
+  document.getElementById('tabBudget').className=p==='budget'?'on':'';
+  document.getElementById('tabDetail').className=p==='detail'?'on':'';
+  if(p==='detail')renderDetail();
+}
+
+function renderAll(){
+  const dl=daysLeft();
+  const s=periodStart(),e=periodEnd();
+  const spent={};ORDER.forEach(k=>spent[k]=0);
+  let income=0;
+  TXS.forEach(t=>{ if(!inPeriod(t.date))return;
+    if(t.dir==='支出'){ if(spent[t.cat]!==undefined)spent[t.cat]+=t.amt; }
+    else income+=t.amt; });
+
+  const bud=budgetOf(income);
+  const totalBudget=ORDER.reduce((a,k)=>a+bud[k],0);
+  const totalSpent=ORDER.reduce((a,k)=>a+spent[k],0);
+  const totalLeft=Math.max(totalBudget-totalSpent,0);
+  document.getElementById('heroNum').innerHTML=fmt(totalLeft/dl)+'<small>/天</small>';
+  document.getElementById('heroDays').textContent='周期 '+(s.getMonth()+1)+'/'+s.getDate()+'-'+(e.getMonth()+1)+'/'+e.getDate()
+    +' · 可花 '+fmt(totalBudget)
+    +(income>0?' · 进账 '+fmt(income):' · 未录工资（按 '+fmt(DEFAULT_PAY)+' 估）')
+    +' · 已花 '+fmt(totalSpent)+' · 剩 '+fmt(totalLeft);
+
+  document.getElementById('cards').innerHTML=ORDER.map(k=>{
+    const budget=bud[k],sp=spent[k],left=budget-sp;
+    const pct=Math.min(sp/budget*100,100),over=left<0;
+    const cls=over?'over':(pct>85?'warn':'ok');
+    const color=over?'var(--bad)':(pct>85?'var(--warn)':'var(--good)');
+    const pill=over?'已超支':(pct>85?'接近上限':'正常');
+    return `<div class="card"><div class="top">
+      <div class="name">${ICON[k]} ${k}<span class="pill ${cls}">${pill}</span></div>
+      <div class="left ${over?'over':''}">${over?'-':''}${fmt(left)}</div></div>
+      <div class="meta"><span>已花 ${fmt(sp)}</span><span>预算 ${fmt(budget)}</span></div>
+      <div class="bar"><i style="width:${pct}%;background:${color}"></i></div>
+      <div class="today">今天最多还能花 <b>${fmt(Math.max(left,0)/dl)}</b></div></div>`;
+  }).join('');
+
+  // 本月结余 = 本周期可花 − 已花。周期切换后自动重算，不结转下月
+  const bal=totalBudget-totalSpent;
+  const be=document.getElementById('balNum');
+  be.textContent=(bal<0?'-':'')+fmt(bal);
+  be.className='bnum '+(bal<0?'neg':'pos');
+  document.getElementById('balTag').textContent='已花 '+(totalBudget>0?Math.round(totalSpent/totalBudget*100):0)+'%';
+  document.getElementById('balHint').textContent=
+    '本周期没花完的部分，'+(e.getMonth()+1)+'/'+e.getDate()+' 起清零重算（不结转下月）';
+  renderDetail();
+}
+
+function setFilter(f){filter=f;renderDetail();}
+
+function renderDetail(){
+  const mine=TXS.filter(t=>inPeriod(t.date));
+  document.getElementById('sumExp').textContent=fmt(mine.filter(t=>t.dir==='支出').reduce((a,t)=>a+t.amt,0));
+  document.getElementById('sumInc').textContent=fmt(mine.filter(t=>t.dir==='收入').reduce((a,t)=>a+t.amt,0));
+
+  let list=mine.slice();
+  if(filter==='支出')list=list.filter(t=>t.dir==='支出');
+  else if(filter==='收入')list=list.filter(t=>t.dir==='收入');
+  else if(filter!=='全部')list=list.filter(t=>t.cat===filter);
+  list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.id-a.id));
+
+  const opts=['全部','支出','收入'].concat(ORDER);
+  document.getElementById('filter').innerHTML=opts.map(o=>
+    `<button class="${o===filter?'on':''}" onclick="setFilter('${o}')">${o}</button>`).join('');
+
+  const el=document.getElementById('txlist');
+  if(!list.length){el.innerHTML='<div class="empty">本周期暂无记录</div>';return;}
+  let html='',last='';
+  list.forEach(t=>{
+    if(t.date!==last){html+=`<div class="txday">${t.date}</div>`;last=t.date;}
+    const isExp=t.dir==='支出';
+    const note=(t.note?t.note:'')+(t.src==='导入'?' · 导入':' · 手动');
+    html+=`<div class="tx"><div class="l"><div class="ic">${ICON[t.cat]||'💵'}</div>
+      <div><div class="cat">${t.cat}</div><div class="note">${note}</div></div></div>
+      <div style="display:flex;align-items:center">
+      <div class="amt ${isExp?'':'inc'}">${isExp?'-':'+'}${fmt(t.amt)}</div>
+      <span class="del" onclick="delTx(${t.id})">✕</span></div></div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ---------- 账单导入（浏览器内解析 CSV）----------
+// 个人分类规则不放代码里，存在你私有的 budget-data 仓库（data.json 的 rules 字段）
+let RULES={eat:[],skip:[],travel:[]};
+const hasAny=(s,arr)=>(arr||[]).some(k=>s.includes(k));
+const isOverseas=s=>(RULES.travel||[]).some(k=>s.toLowerCase().includes(k.toLowerCase()));
+
+function classify(cp,desc,status){
+  const text=(cp||'')+' '+(desc||'');
+  if(isOverseas(text))return '旅行';
+  if(hasAny(cp||'',RULES.eat))return '吃饭';    // 一起AA吃饭的人
+  if(hasAny(cp||'',RULES.skip))return '同事';   // 同事往来，不计入预算
+  if(hasAny(text,['餐','饮','茶','饭','美食','美团','饿了么','闪购','咖啡','水果','酸奶','盒马','超市','便利','麦德龙']))return '吃饭';
+  if(hasAny(text,['服装','衣','muji','zara','无印良品','baserange','fax','优衣库','h&m','彪马','puma']))return '衣服';
+  if(hasAny(text,['地铁','公交','12306','滴滴','打车','铁路','加油','乘车']))return '交通';
+  return '生活弹性';
+}
+
+async function importFile(input){
+  const file=input.files[0];if(!file)return;
+  const msg=document.getElementById('importMsg');
+  msg.textContent='解析中…';
+  try{
+    const buf=await file.arrayBuffer();
+    let text='';
+    // 支付宝是 GB18030 编码
+    for(const enc of ['utf-8','gb18030']){
+      try{text=new TextDecoder(enc,{fatal:enc==='gb18030'?false:true}).decode(buf);if(!text.includes('�')||enc==='gb18030')break;}catch(e){}
+    }
+    const lines=text.split(/\r?\n/);
+    const hi=lines.findIndex(l=>(l.includes('交易时间')||l.includes('交易创建时间'))&&l.includes('交易对方'));
+    if(hi<0){msg.textContent='❌ 无法识别此文件格式';toast('无法识别此文件');return;}
+    const parseRow=(line)=>{const cells=[];let c='',inQ=false;
+      for(let i=0;i<line.length;i++){const ch=line[i];
+        if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){cells.push(c);c='';}else c+=ch;}
+      cells.push(c);return cells.map(x=>x.replace(/^"|"$/g,'').trim());};
+    const header=parseRow(hi>=0?lines[hi]:'');
+    const col=(cells,...names)=>{for(const n of names){const i=header.indexOf(n);if(i>=0&&i<cells.length)return cells[i];}return '';};
+
+    let added=0;
+    for(let i=hi+1;i<lines.length;i++){
+      if(!lines[i].trim())continue;
+      const c=parseRow(lines[i]);
+      if(c.length<5)continue;
+      const date=(col(c,'交易时间','交易创建时间','创建时间')||'').slice(0,10).replace(/\//g,'-');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
+      const status=col(c,'交易状态','当前状态');
+      if(status&&!['交易成功','支付成功','已转账','已存入'].includes(status))continue;
+      if(col(c,'收/支')!=='支出')continue;
+      const amt=parseFloat((col(c,'金额','金额（元）','金额(元)')||'').replace(/[,¥]/g,''));
+      if(!(amt>0))continue;
+      const cp=col(c,'交易对方'),desc=col(c,'商品说明','商品名称','商品');
+      const bucket=classify(cp,desc,status);
+      if(bucket==='同事'||bucket==='旅行')continue;   // 同事剔除、旅行不入桶
+      // 去重：同日期+同金额+同分类 且来源为导入
+      const dup=TXS.some(t=>t.date===date&&t.amt===amt&&t.cat===bucket&&t.src==='导入');
+      if(dup)continue;
+      TXS.push({id:Date.now()+Math.random(),date,dir:'支出',cat:bucket,amt,note:cp||desc,src:'导入'});
+      added++;
+    }
+    if(added){renderAll();saveState();msg.textContent='✅ 导入 '+added+' 笔';toast('导入 '+added+' 笔');}
+    else{msg.textContent='没有新记录';toast('没有新记录');}
+  }catch(e){msg.textContent='❌ 解析出错';toast('解析出错');}
+  input.value='';
+}
+
+// ---------- 启动 ----------
+renderCats();
+loadState();
+if(location.hash==='#detail')showPage('detail');
+window.addEventListener('hashchange',()=>showPage(location.hash==='#detail'?'detail':'budget'));
+setInterval(()=>{if(document.getElementById('page-budget').classList.contains('on'))renderAll();},60000);
+</script>
+</body>
+</html>

@@ -169,22 +169,24 @@ padding:11px 20px;border-radius:22px;font-size:13px;opacity:0;transition:opacity
 // 固定额度（三个硬性消费桶），生活弹性自动吸收余额
 const BASE = {'吃饭':1500,'衣服':2000,'交通':350};
 const ORDER = ['吃饭','衣服','交通','生活弹性'];
-const ICON = {'吃饭':'🍚','衣服':'👗','交通':'🚇','生活弹性':'🧴','进账':'💵'};
+const INC_CATS = ['工资','其他进账'];   // 收入只分这两类：工资决定基数，其他进账直接加到可花额
+const ICON = {'吃饭':'🍚','衣服':'👗','交通':'🚇','生活弹性':'🧴','工资':'💵','其他进账':'🧧','进账':'💵'};
 const PAY_DAY = 12;          // 每月 12 号发薪，周期 = 本月12号 → 次月12号
 const FIXED = 5700;          // 每周期固定扣减：强制储蓄 3500 + 房租 2200
-const DEFAULT_PAY = 11850;   // 未录入工资时，按此金额估算可花额
+const DEFAULT_PAY = 11850;   // 没录工资时，按此金额估算可花额
 
-// 本周期可花总额 = 进账 − 固定扣减（没录进账就按默认月薪算）
-function available(income){ return Math.max((income>0?income:DEFAULT_PAY)-FIXED, 0); }
+// 本周期可花总额 = 工资基数 − 固定扣减 + 其他进账
+// 工资没录就按默认月薪估；其他进账（红包/报销/退款）不影响基数，直接加到可花额
+function available(pay, extra){ return Math.max((pay>0?pay:DEFAULT_PAY)-FIXED, 0) + extra; }
 // 三类额度固定，生活弹性吸收剩余（工资变化时自动跟着变）
-function budgetOf(income){
+function budgetOf(pay, extra){
   const b={...BASE};
-  const used=ORDER.reduce((a,k)=>a+(b[k]||0),0);
-  b['生活弹性']=Math.max(available(income)-used,0);
+  const used=Object.keys(BASE).reduce((a,k)=>a+BASE[k],0);
+  b['生活弹性']=Math.max(available(pay,extra)-used,0);
   return b;
 }
 
-let dir='支出', cat='吃饭', filter='全部';
+let dir='支出', cat='吃饭', catInc='工资', filter='全部';
 let TXS=[];                 // 全部记录 {id,date,dir,cat,amt,note,src}
 let saving=false, pendingSave=false;
 
@@ -298,17 +300,19 @@ async function saveState(){
 function setDir(d){dir=d;
   document.getElementById('btnExp').className=d==='支出'?'on-exp':'';
   document.getElementById('btnInc').className=d==='收入'?'on-inc':'';
-  document.getElementById('cats').style.display=d==='支出'?'flex':'none';
-  document.getElementById('amt').placeholder=d==='支出'?'金额 ¥':'进账金额 ¥（如工资）';}
+  document.getElementById('cats').style.display='flex';
+  document.getElementById('amt').placeholder=d==='支出'?'金额 ¥':'进账金额 ¥';
+  renderCats();}
 function renderCats(){const c=document.getElementById('cats');
-  c.innerHTML=ORDER.map(k=>`<button class="${k===cat?'on':''}" onclick="setCat('${k}')">${ICON[k]}${k}</button>`).join('');}
-function setCat(k){cat=k;renderCats();}
+  const list=dir==='支出'?ORDER:INC_CATS, cur=dir==='支出'?cat:catInc;
+  c.innerHTML=list.map(k=>`<button class="${k===cur?'on':''}" onclick="setCat('${k}')">${ICON[k]}${k}</button>`).join('');}
+function setCat(k){if(dir==='支出')cat=k;else catInc=k;renderCats();}
 
 function addTx(){
   const v=parseFloat(document.getElementById('amt').value);
   if(!v||v<=0){toast('请输入金额');return;}
   const note=document.getElementById('note').value.trim();
-  TXS.push({id:Date.now()+Math.random(),date:todayStr(),dir:dir,cat:dir==='收入'?'进账':cat,amt:v,note:note,src:'手动'});
+  TXS.push({id:Date.now()+Math.random(),date:todayStr(),dir:dir,cat:dir==='收入'?catInc:cat,amt:v,note:note,src:'手动'});
   document.getElementById('amt').value='';document.getElementById('note').value='';
   renderAll();saveState();
 }
@@ -327,19 +331,25 @@ function renderAll(){
   const dl=daysLeft();
   const s=periodStart(),e=periodEnd();
   const spent={};ORDER.forEach(k=>spent[k]=0);
-  let income=0;
+  let pay=0, extra=0;
   TXS.forEach(t=>{ if(!inPeriod(t.date))return;
     if(t.dir==='支出'){ if(spent[t.cat]!==undefined)spent[t.cat]+=t.amt; }
-    else income+=t.amt; });
+    else if(t.cat==='工资') pay+=t.amt;
+    else extra+=t.amt; });        // 其他进账，以及旧记录的「进账」
 
-  const bud=budgetOf(income);
+  const bud=budgetOf(pay,extra);
   const totalBudget=ORDER.reduce((a,k)=>a+bud[k],0);
   const totalSpent=ORDER.reduce((a,k)=>a+spent[k],0);
   const totalLeft=Math.max(totalBudget-totalSpent,0);
   document.getElementById('heroNum').innerHTML=fmt(totalLeft/dl)+'<small>/天</small>';
+  let incTxt=' · 未录工资（按 '+fmt(DEFAULT_PAY)+' 估）';
+  if(pay>0||extra>0){
+    incTxt=' · 进账 '+fmt(pay+extra);
+    if(extra>0)incTxt+='（工资 '+fmt(pay>0?pay:DEFAULT_PAY)+' + 其他 '+fmt(extra)+'）';
+  }
   document.getElementById('heroDays').textContent='周期 '+(s.getMonth()+1)+'/'+s.getDate()+'-'+(e.getMonth()+1)+'/'+e.getDate()
     +' · 可花 '+fmt(totalBudget)
-    +(income>0?' · 进账 '+fmt(income):' · 未录工资（按 '+fmt(DEFAULT_PAY)+' 估）')
+    +incTxt
     +' · 已花 '+fmt(totalSpent)+' · 剩 '+fmt(totalLeft);
 
   document.getElementById('cards').innerHTML=ORDER.map(k=>{

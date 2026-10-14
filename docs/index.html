@@ -37,6 +37,8 @@ padding:calc(16px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-ins
 .hero .num{font-size:42px;font-weight:700;margin-top:2px}
 .hero .num small{font-size:17px;font-weight:500}
 .hero .days{font-size:12px;opacity:.85;margin-top:6px}
+.hero .calc{font-size:11.5px;line-height:1.95;margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.28);opacity:.95}
+.hero .calc span{white-space:nowrap}
 .cards{display:flex;flex-direction:column;gap:11px}
 .card{background:var(--card);border-radius:16px;padding:15px 18px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
 .card .top{display:flex;justify-content:space-between;align-items:baseline}
@@ -44,6 +46,7 @@ padding:calc(16px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-ins
 .card .left{font-size:21px;font-weight:700}
 .card .left.over{color:var(--bad)}
 .card .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:2px}
+.card .deriv{font-size:10.5px;color:var(--sub);opacity:.85;margin-top:3px}
 .card .today{font-size:12px;color:var(--sub);margin-top:9px}
 .card .today b{color:var(--acc)}
 .balance{background:var(--card);border-radius:16px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.03);margin-top:16px}
@@ -134,9 +137,10 @@ padding:11px 20px;border-radius:22px;font-size:13px;opacity:0;transition:opacity
     </div>
 
     <div class="hero">
-      <div class="label">本周期每天最多还能花（弹性总额）</div>
+      <div class="label">本周期每天最多还能花</div>
       <div class="num" id="heroNum">¥--</div>
       <div class="days" id="heroDays"></div>
+      <div class="calc" id="heroCalc"></div>
     </div>
 
     <div class="cards" id="cards"></div>
@@ -172,7 +176,9 @@ const ORDER = ['吃饭','衣服','交通','生活弹性'];
 const INC_CATS = ['工资','其他进账'];   // 收入只分这两类：工资决定基数，其他进账直接加到可花额
 const ICON = {'吃饭':'🍚','衣服':'👗','交通':'🚇','生活弹性':'🧴','工资':'💵','其他进账':'🧧','进账':'💵'};
 const PAY_DAY = 12;          // 每月 12 号发薪，周期 = 本月12号 → 次月12号
-const FIXED = 5700;          // 每周期固定扣减：强制储蓄 3500 + 房租 2200
+const SAVE = 3500;           // 每周期强制储蓄
+const RENT = 2200;           // 房租
+const FIXED = SAVE + RENT;   // 每周期固定扣减 5700
 const DEFAULT_PAY = 11850;   // 没录工资时，按此金额估算可花额
 
 // 本周期可花总额 = 工资基数 − 固定扣减 + 其他进账
@@ -342,16 +348,19 @@ function renderAll(){
   const totalSpent=ORDER.reduce((a,k)=>a+spent[k],0);
   const totalLeft=Math.max(totalBudget-totalSpent,0);
   document.getElementById('heroNum').innerHTML=fmt(totalLeft/dl)+'<small>/天</small>';
-  let incTxt=' · 未录工资（按 '+fmt(DEFAULT_PAY)+' 估）';
-  if(pay>0||extra>0){
-    incTxt=' · 进账 '+fmt(pay+extra);
-    if(extra>0)incTxt+='（工资 '+fmt(pay>0?pay:DEFAULT_PAY)+' + 其他 '+fmt(extra)+'）';
-  }
-  document.getElementById('heroDays').textContent='周期 '+(s.getMonth()+1)+'/'+s.getDate()+'-'+(e.getMonth()+1)+'/'+e.getDate()
-    +' · 可花 '+fmt(totalBudget)
-    +incTxt
-    +' · 已花 '+fmt(totalSpent)+' · 剩 '+fmt(totalLeft);
+  document.getElementById('heroDays').textContent=
+    '周期 '+(s.getMonth()+1)+'/'+s.getDate()+'–'+(e.getMonth()+1)+'/'+e.getDate()+' · 还剩 '+dl+' 天';
+  // 把每个数字的来源摊开，方便自己核对
+  const payBase=pay>0?pay:DEFAULT_PAY;
+  document.getElementById('heroCalc').innerHTML=
+     '<span>工资 '+fmt(payBase)+(pay>0?'':'（没录，按默认估）')+'</span>'
+    +' − <span>储蓄 '+fmt(SAVE)+'</span> − <span>房租 '+fmt(RENT)+'</span>'
+    +(extra>0?' + <span>其他进账 '+fmt(extra)+'</span>':'')
+    +' = <span>可花 '+fmt(totalBudget)+'</span><br>'
+    +'<span>可花 '+fmt(totalBudget)+'</span> − <span>已花 '+fmt(totalSpent)+'</span>'
+    +' = <span>剩 '+fmt(totalLeft)+'</span> ÷ <span>'+dl+' 天</span> = <span>'+fmt(totalLeft/dl)+'/天</span>';
 
+  const fixedSum=Object.keys(BASE).reduce((a,x)=>a+BASE[x],0);   // 吃饭+衣服+交通
   document.getElementById('cards').innerHTML=ORDER.map(k=>{
     const budget=bud[k],sp=spent[k],left=budget-sp;
     const pct=Math.min(sp/budget*100,100),over=left<0;
@@ -362,6 +371,7 @@ function renderAll(){
       <div class="name">${ICON[k]} ${k}<span class="pill ${cls}">${pill}</span></div>
       <div class="left ${over?'over':''}">${over?'-':''}${fmt(left)}</div></div>
       <div class="meta"><span>已花 ${fmt(sp)}</span><span>预算 ${fmt(budget)}</span></div>
+      ${k==='生活弹性'?`<div class="deriv">额度 = 可花 ${fmt(totalBudget)} − 三类固定 ${fmt(fixedSum)}</div>`:''}
       <div class="bar"><i style="width:${pct}%;background:${color}"></i></div>
       <div class="today">今天最多还能花 <b>${fmt(Math.max(left,0)/dl)}</b></div></div>`;
   }).join('');
@@ -373,7 +383,8 @@ function renderAll(){
   be.className='bnum '+(bal<0?'neg':'pos');
   document.getElementById('balTag').textContent='已花 '+(totalBudget>0?Math.round(totalSpent/totalBudget*100):0)+'%';
   document.getElementById('balHint').textContent=
-    '本周期没花完的部分，'+(e.getMonth()+1)+'/'+e.getDate()+' 起清零重算（不结转下月）';
+    '= 可花 '+fmt(totalBudget)+' − 已花 '+fmt(totalSpent)+'（就是上面那个「剩」）· '
+    +(e.getMonth()+1)+'/'+e.getDate()+' 起清零重算，不结转下月';
   renderDetail();
 }
 
